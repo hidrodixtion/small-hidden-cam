@@ -38,7 +38,7 @@ import java.util.*
 class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.PictureCallback, Camera.ShutterCallback {
 
     private lateinit var mHolder: SurfaceHolder
-    private var mCamera: Camera? = null
+    private lateinit var mCamera: Camera
     private lateinit var audioMgr: AudioManager
     private var lastVolume: Int = 0
     private lateinit var sharedPref: SharedPreferences
@@ -66,6 +66,12 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         mHolder.addCallback(this)
         mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS)
 
+        try {
+            mCamera.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         mCamera = Camera.open()
 
         audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -83,10 +89,10 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         fab_view.setOnClickListener {
             if (view_surface.visibility == View.INVISIBLE) {
                 view_surface.visibility = View.VISIBLE
-                mCamera?.startPreview()
+                mCamera.startPreview()
             } else {
                 view_surface.visibility = View.INVISIBLE
-                mCamera?.stopPreview()
+                mCamera.stopPreview()
             }
         }
     }
@@ -136,7 +142,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
     }
 
     override fun surfaceChanged(p0: SurfaceHolder?, p1: Int, p2: Int, p3: Int) {
-        val param = mCamera?.parameters
+        val param = mCamera.parameters
         val sizes = param?.supportedPreviewSizes
         val selected = sizes!![0]
 
@@ -146,10 +152,10 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         param?.setPictureSize(sizeMap["width"]!!, sizeMap["height"]!!)
         param?.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
 
-        mCamera?.parameters = param
+        mCamera.parameters = param
 
-        mCamera?.setDisplayOrientation(90)
-        mCamera?.startPreview()
+        mCamera.setDisplayOrientation(90)
+        mCamera.startPreview()
     }
 
     fun getPictureSize(supportedPictureSizes: MutableList<Camera.Size>): HashMap<String, Int> {
@@ -173,7 +179,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
     override fun surfaceCreated(p0: SurfaceHolder?) {
         try {
-            mCamera?.setPreviewDisplay(mHolder)
+            mCamera.setPreviewDisplay(mHolder)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -185,13 +191,16 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
     override fun onPause() {
         super.onPause()
-
-        mCamera?.stopPreview()
+        try {
+            mCamera.stopPreview()
+        } catch (e: UninitializedPropertyAccessException) {
+            e.printStackTrace()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        mCamera?.release()
+        mCamera.release()
     }
 
     override fun onShutter() {
@@ -241,7 +250,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
             e.printStackTrace()
         }
 
-        mCamera?.startPreview()
+        mCamera.startPreview()
     }
 
     fun rotate(bitmap: Bitmap, degree: Float): Bitmap {
