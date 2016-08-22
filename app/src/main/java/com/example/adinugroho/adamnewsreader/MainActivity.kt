@@ -35,12 +35,11 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Suppress("deprecation")
 class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.PictureCallback, Camera.ShutterCallback {
 
     private lateinit var mHolder: SurfaceHolder
     private lateinit var mCamera: Camera
-    private lateinit var audioMgr: AudioManager
-    private var lastVolume: Int = 0
     private lateinit var sharedPref: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +53,12 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         toolbar.title = "Adam News Reader"
         setSupportActionBar(toolbar)
 
+        mHolder = view_surface.holder
+        mHolder.addCallback(this)
+        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS)
+
+        setupWebView()
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermission()
         } else {
@@ -61,11 +66,17 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         }
     }
 
-    fun setupPreviewAndCamera() {
-        mHolder = view_surface.holder
-        mHolder.addCallback(this)
-        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS)
+    fun setupWebView() {
+        sharedPref = PreferenceManager.getDefaultSharedPreferences(this)
 
+        webview.settings.loadWithOverviewMode = true
+        webview.settings.useWideViewPort = true
+        webview.settings.allowFileAccess = true
+        webview.settings.allowContentAccess = true
+        webview.loadUrl(sharedPref.getString("url", "http://www.kompas.com/"))
+    }
+
+    fun setupPreviewAndCamera() {
         try {
             mCamera.release()
         } catch (e: Exception) {
@@ -74,18 +85,11 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
         mCamera = Camera.open()
 
-        audioMgr = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
-        sharedPref = PreferenceManager.getDefaultSharedPreferences(this)
-
-        webview.settings.loadWithOverviewMode = true
-        webview.settings.useWideViewPort = true
-        webview.settings.allowFileAccess = true
-        webview.settings.allowContentAccess = true
-        webview.loadUrl(sharedPref.getString("url", "http://www.kompas.com/"))
-
+        fab.setOnClickListener(null)
         setFabClickListener()
 
+        // toggle surface view
+        fab_view.setOnClickListener(null)
         fab_view.setOnClickListener {
             if (view_surface.visibility == View.INVISIBLE) {
                 view_surface.visibility = View.VISIBLE
@@ -101,11 +105,8 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
     fun setFabClickListener() {
         fab.setOnClickListener { view ->
             fab.setOnClickListener(null)
-//            lastVolume = audioMgr.getStreamVolume(AudioManager.STREAM_SYSTEM)
-//            audioMgr.setStreamVolume(AudioManager.STREAM_SYSTEM, 0, AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE)
-
             view_surface.visibility = View.VISIBLE
-            mCamera?.takePicture(null, null, null, this)
+            mCamera.takePicture(null, null, null, this)
         }
     }
 
@@ -170,8 +171,8 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
             }
         }
 
-        if (width >= 1280) {
-            sizes = hashMapOf("width" to 1280, "height" to 720)
+        if (width >= 1920) {
+            sizes = hashMapOf("width" to 1920, "height" to 1080)
         }
 
         return sizes
@@ -189,28 +190,37 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         Log.i("PREVIEW", "surfaceDestroyed")
     }
 
+    override fun onResume() {
+        super.onResume()
+        setupPreviewAndCamera()
+    }
+
     override fun onPause() {
         super.onPause()
         try {
             mCamera.stopPreview()
+            mCamera.setPreviewCallback(null)
+            mCamera.release()
         } catch (e: UninitializedPropertyAccessException) {
             e.printStackTrace()
         }
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        mCamera.stopPreview()
+        mCamera.setPreviewCallback(null)
         mCamera.release()
+        super.onDestroy()
     }
 
     override fun onShutter() {
         Toast.makeText(this, "J.A.N.C.O.K", Toast.LENGTH_SHORT).show()
     }
 
-    /// implementation when pick taken
+    /// implementation when pict taken
     override fun onPictureTaken(data: ByteArray?, p1: Camera?) {
         val timeStamp = SimpleDateFormat("yyyy-MM-dd HH-mm-ss", Locale.getDefault()).format(Date())
-        val filename = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)}${File.separator}${timeStamp}.jpg"
+        val filename = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)}${File.separator}$timeStamp.jpg"
         val file = File(filename)
 
         try {
@@ -219,7 +229,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
             var realImage = BitmapFactory.decodeByteArray(data, 0, data!!.size)
             val exif = ExifInterface(file.toString())
 
-            Log.d("EXIF value", exif.getAttribute(ExifInterface.TAG_ORIENTATION));
+            Log.d("EXIF value", exif.getAttribute(ExifInterface.TAG_ORIENTATION))
 
             if (exif.getAttribute(ExifInterface.TAG_ORIENTATION).equals("6", true)) {
                 realImage = rotate(realImage, 90f)
@@ -231,7 +241,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
                 realImage = rotate(realImage, 90f)
             }
 
-            val bo = realImage.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            realImage.compress(Bitmap.CompressFormat.JPEG, 90, out)
 
             out.flush()
             out.fd.sync()
@@ -239,7 +249,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
             Toast.makeText(this, "J.A.N.C.O.K", Toast.LENGTH_SHORT).show()
 
-            MediaScannerConnection.scanFile(this, arrayOf(file.absolutePath), null, MediaScannerConnection.OnScanCompletedListener { s, uri ->
+            MediaScannerConnection.scanFile(this, arrayOf(file.absolutePath), null, { s, uri ->
                 Log.v("MAIN", "Scan Completed")
             })
 
