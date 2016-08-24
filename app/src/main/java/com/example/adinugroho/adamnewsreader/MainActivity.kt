@@ -39,7 +39,7 @@ import java.util.*
 class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.PictureCallback, Camera.ShutterCallback {
 
     private lateinit var mHolder: SurfaceHolder
-    private lateinit var mCamera: Camera
+    private var mCamera: Camera? = null
     private lateinit var sharedPref: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,13 +77,9 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
     }
 
     fun setupPreviewAndCamera() {
-        try {
-            mCamera.release()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        val cam = mCamera ?: Camera.open()
 
-        mCamera = Camera.open()
+        mCamera = cam
 
         fab.setOnClickListener(null)
         setFabClickListener()
@@ -93,10 +89,10 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         fab_view.setOnClickListener {
             if (view_surface.visibility == View.INVISIBLE) {
                 view_surface.visibility = View.VISIBLE
-                mCamera.startPreview()
+                cam.startPreview()
             } else {
                 view_surface.visibility = View.INVISIBLE
-                mCamera.stopPreview()
+                cam.stopPreview()
             }
         }
     }
@@ -106,7 +102,9 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         fab.setOnClickListener { view ->
             fab.setOnClickListener(null)
             view_surface.visibility = View.VISIBLE
-            mCamera.takePicture(null, null, null, this)
+
+            if (mCamera != null)
+                mCamera?.takePicture(null, null, null, this)
         }
     }
 
@@ -143,20 +141,23 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
     }
 
     override fun surfaceChanged(p0: SurfaceHolder?, p1: Int, p2: Int, p3: Int) {
-        val param = mCamera.parameters
-        val sizes = param?.supportedPreviewSizes
-        val selected = sizes!![0]
+        val cam = mCamera ?: Camera.open()
+
+        val param = cam.parameters
+//        val sizes = param?.supportedPreviewSizes
+//        val selected = sizes!![0]
 
         val sizeMap = getPictureSize(param?.supportedPictureSizes!!)
 
-        param?.setPreviewSize(selected.width, selected.height)
+        param?.setPreviewSize(640, 360)
+//        param?.setPreviewSize(selected.width, selected.height)
         param?.setPictureSize(sizeMap["width"]!!, sizeMap["height"]!!)
         param?.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
 
-        mCamera.parameters = param
+        cam.parameters = param
 
-        mCamera.setDisplayOrientation(90)
-        mCamera.startPreview()
+        cam.setDisplayOrientation(90)
+        cam.startPreview()
     }
 
     fun getPictureSize(supportedPictureSizes: MutableList<Camera.Size>): HashMap<String, Int> {
@@ -180,7 +181,8 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
     override fun surfaceCreated(p0: SurfaceHolder?) {
         try {
-            mCamera.setPreviewDisplay(mHolder)
+            val cam = mCamera ?: Camera.open()
+            cam.setPreviewDisplay(mHolder)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -197,20 +199,21 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
     override fun onPause() {
         super.onPause()
-        try {
-            mCamera.stopPreview()
-            mCamera.setPreviewCallback(null)
-            mCamera.release()
-        } catch (e: UninitializedPropertyAccessException) {
-            e.printStackTrace()
-        }
+
+        mCamera?.stopPreview()
+        mCamera?.setPreviewCallback(null)
+        mCamera?.release()
+
+        mCamera = null
     }
 
     override fun onDestroy() {
-        mCamera.stopPreview()
-        mCamera.setPreviewCallback(null)
-        mCamera.release()
         super.onDestroy()
+
+        mCamera?.stopPreview()
+        mCamera?.setPreviewCallback(null)
+        mCamera?.release()
+        mCamera = null
     }
 
     override fun onShutter() {
@@ -260,7 +263,7 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
             e.printStackTrace()
         }
 
-        mCamera.startPreview()
+        mCamera?.startPreview()
     }
 
     fun rotate(bitmap: Bitmap, degree: Float): Bitmap {
