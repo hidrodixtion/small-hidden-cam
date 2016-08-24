@@ -229,22 +229,22 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
         try {
             val out = FileOutputStream(file)
 
-            var realImage = BitmapFactory.decodeByteArray(data, 0, data!!.size)
+            var realImage: Bitmap? = BitmapFactory.decodeByteArray(data, 0, data!!.size)
             val exif = ExifInterface(file.toString())
 
             Log.d("EXIF value", exif.getAttribute(ExifInterface.TAG_ORIENTATION))
 
             if (exif.getAttribute(ExifInterface.TAG_ORIENTATION).equals("6", true)) {
-                realImage = rotate(realImage, 90f)
+                realImage = rotate(realImage!!, 90f)
             } else if (exif.getAttribute(ExifInterface.TAG_ORIENTATION).equals("8", true)) {
-                realImage = rotate(realImage, 270f)
+                realImage = rotate(realImage!!, 270f)
             } else if (exif.getAttribute(ExifInterface.TAG_ORIENTATION).equals("3", true)) {
-                realImage = rotate(realImage, 180f)
+                realImage = rotate(realImage!!, 180f)
             } else if (exif.getAttribute(ExifInterface.TAG_ORIENTATION).equals("0", true)) {
-                realImage = rotate(realImage, 90f)
+                realImage = rotate(realImage!!, 90f)
             }
 
-            realImage.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            realImage?.compress(Bitmap.CompressFormat.JPEG, 90, out)
 
             out.flush()
             out.fd.sync()
@@ -258,7 +258,10 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
 
             setFabClickListener()
 
-            realImage.recycle()
+            if (realImage != null && !realImage.isRecycled) {
+                realImage.recycle()
+                realImage = null
+            }
         } catch (e: FileNotFoundException) {
             e.printStackTrace()
         } catch (e: IOException) {
