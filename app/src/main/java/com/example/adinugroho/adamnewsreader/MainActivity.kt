@@ -257,6 +257,8 @@ class MainActivity : AppCompatActivity(), SurfaceHolder.Callback, Camera.Picture
             })
 
             setFabClickListener()
+
+            realImage.recycle()
         } catch (e: FileNotFoundException) {
             e.printStackTrace()
         } catch (e: IOException) {
